@@ -1,1 +1,177 @@
-../Ruby Tips & Tricks
+Ruby Tips & Tricks
+
+------------------------------------------------------------------------
+# Returns a hash of the given methods with names as keys and method return values as values.
+def slice(*methods)
+  Hash[methods.map! { |method| [method, public_send(method)] }].with_indifferent_access
+end
+
+Source: Active Record 
+https://github.com/rails/rails/blob/master/activerecord/lib/active_record/core.rb
+
+------------------------------------------------------------------------
+# Using if/else to assign a variable
+inspection =if defined?(@attributes) && @attributes
+              self.class.column_names.collect { |name|
+                if has_attribute?(name)
+                  "#{name}: #{attribute_for_inspect(name)}"
+                end
+              }.compact.join(", ")
+            else
+              "not initialized"
+            end
+
+Source: Active Record 
+https://github.com/rails/rails/blob/master/activerecord/lib/active_record/core.rb
+
+------------------------------------------------------------------------
+# Using a heredoc within a method
+ActiveSupport::Deprecation.warn(<<-MSG.squish)
+  You are passing an instance of ActiveRecord::Base to `find`.
+  Please pass the id of the object by calling `.id`
+MSG
+
+# The following also works
+puts(<<-MSG)
+	Here is my multi-
+	line message
+	MSG
+
+Source: Active Record 
+https://github.com/rails/rails/blob/master/activerecord/lib/active_record/core.rb
+
+------------------------------------------------------------------------
+# Define method 'squish' in class String 
+class String
+  # Performs a destructive squish. See String#squish.
+  #   str = " foo   bar    \n   \t   boo"
+  #   str.squish!                         # => "foo bar boo"
+  #   str                                 # => "foo bar boo"
+  def squish!
+    gsub!(/[[:space:]]+/, ' ')
+    strip!
+    self
+  end
+end
+
+# Then define one that doesn't modify the receiver using .dup
+def squish
+  dup.squish!
+end
+
+Source: Active Support
+https://github.com/rails/rails/blob/master/activesupport/lib/active_support/core_ext/string/filters.rb
+
+------------------------------------------------------------------------
+# Example singleton pattern used to load inflections
+module ActiveSupport
+  module Inflector
+    extend self
+
+    class Inflections
+      @__instance__ = Concurrent::Map.new
+
+      def self.instance(locale = :en)
+        @__instance__[locale] ||= new
+      end
+
+      attr_reader :plurals, :singulars, :uncountables, :humans, :acronyms, :acronym_regex
+
+      def initialize
+        @plurals, @singulars, @uncountables, @humans, @acronyms, @acronym_regex = [], [], Uncountables.new, [], {}, /(?=a)b/
+      end
+
+      def plural(rule, replacement)
+        @uncountables.delete(rule) if rule.is_a?(String)
+        @uncountables.delete(replacement)
+        @plurals.prepend([rule, replacement])
+      end
+
+      # Yields a singleton instance of Inflector::Inflections so you can specify additional inflector rules.
+      
+      def inflections(locale = :en)
+	    if block_given?
+	      yield Inflections.instance(locale)
+	    else
+	      Inflections.instance(locale)
+	    end
+      end
+    end
+  end
+
+  # Populate @plurals
+  Inflector.inflections(:en) do |inflect|
+	inflect.plural(/$/, 's')
+	inflect.plural(/s$/i, 's')
+	inflect.plural(/^(ax|test)is$/i, '\1es')
+	inflect.plural(/(octop|vir)us$/i, '\1i')
+	inflect.plural(/(octop|vir)i$/i, '\1i')
+	inflect.plural(/(alias|status)$/i, '\1es')
+	inflect.plural(/(bu)s$/i, '\1ses')
+	inflect.plural(/(buffal|tomat)o$/i, '\1oes')
+	inflect.plural(/([ti])um$/i, '\1a')
+	inflect.plural(/([ti])a$/i, '\1a')
+	inflect.plural(/sis$/i, 'ses')
+	inflect.plural(/(?:([^f])fe|([lr])f)$/i, '\1\2ves')
+	inflect.plural(/(hive)$/i, '\1s')
+	inflect.plural(/([^aeiouy]|qu)y$/i, '\1ies')
+	inflect.plural(/(x|ch|ss|sh)$/i, '\1es')
+	inflect.plural(/(matr|vert|ind)(?:ix|ex)$/i, '\1ices')
+	inflect.plural(/^(m|l)ouse$/i, '\1ice')
+	inflect.plural(/^(m|l)ice$/i, '\1ice')
+	inflect.plural(/^(ox)$/i, '\1en')
+	inflect.plural(/^(oxen)$/i, '\1')
+	inflect.plural(/(quiz)$/i, '\1zes')
+  end
+end
+
+
+Source: Active Support
+https://github.com/rails/rails/blob/master/activesupport/lib/active_support/inflector/inflections.rb
+https://github.com/rails/rails/blob/master/activesupport/lib/active_support/inflections.rb
+http://dalibornasevic.com/posts/9-ruby-singleton-pattern
+
+------------------------------------------------------------------------
+# Extract hash from last argument of parameter list
+def self::parse_connect_args( *args )
+  return '' if args.empty?
+  hash_arg = args.last.is_a?( Hash ) ? args.pop : {}
+end
+
+Source: ruby-pg
+https://github.com/ged/ruby-pg/blob/master/lib/pg/connection.rb
+
+------------------------------------------------------------------------
+# Combine array of keys and an array of values into a hash
+options = {}
+KEYS = %w[host port options tty dbname user password]
+VALS = %w[one two three]
+KEYS.zip(VALS) do |(k,v)|
+  options[k.to_sym] = v if v
+end
+
+#=> {:host=>"one", :port=>"two", :options=>"three"}
+
+Source: ruby-pg
+https://github.com/ged/ruby-pg/blob/master/lib/pg/connection.rb
+
+------------------------------------------------------------------------
+#use a hash to create a url query string
+require 'uri'
+h = {:a=>1,b=>2}
+URI.encode_www_form(h)
+
+#=> "a=1&b=2"
+
+Source: ruby-pg
+https://github.com/ged/ruby-pg/blob/master/lib/pg/connection.rb
+
+------------------------------------------------------------------------
+#use uri to extract key/values hash from query string
+require 'uri'
+h = "a=1&b=2"
+URI.decode_www_form(h)
+
+#=> [["a", "1"], ["b", "2"]]
+
+------------------------------------------------------------------------
